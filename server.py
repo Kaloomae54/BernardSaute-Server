@@ -8,7 +8,6 @@ CORS(app)
 
 USERS_FILE = "users.json"
 
-# Crée le fichier users.json s'il n'existe pas
 if not os.path.exists(USERS_FILE):
     with open(USERS_FILE, "w") as f:
         json.dump({}, f)
@@ -73,4 +72,5 @@ def update_user():
     return jsonify({"error": "User not found"}), 404
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
