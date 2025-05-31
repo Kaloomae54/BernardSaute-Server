@@ -1,75 +1,72 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import os
 import json
+import os
+import hashlib
 
 app = Flask(__name__)
 CORS(app)
 
 USERS_FILE = "users.json"
 
-if not os.path.exists(USERS_FILE):
-    with open(USERS_FILE, "w") as f:
-        json.dump({}, f)
-
-def load_users():
+# Chargement des utilisateurs
+if os.path.exists(USERS_FILE):
     with open(USERS_FILE, "r") as f:
-        return json.load(f)
+        users = json.load(f)
+else:
+    users = {}
 
-def save_users(users):
+def save_users():
     with open(USERS_FILE, "w") as f:
         json.dump(users, f)
 
-@app.route("/")
-def home():
-    return "Bernard Saute API fonctionne"
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
 
 @app.route("/signup", methods=["POST"])
 def signup():
-    data = request.get_json()
+    data = request.json
     username = data.get("username")
     password = data.get("password")
-
-    users = load_users()
     if username in users:
-        return jsonify({"error": "User already exists"}), 400
+        return jsonify({"error": "Utilisateur déjà existant"}), 400
 
     users[username] = {
-        "password": password,
+        "password": hash_password(password),
         "points": 0,
         "current_skin": "bernard_classic",
-        "shop_items": {
-            "bernard_classic": True
-        }
+        "shop_items": {"bernard_classic": True}
     }
-    save_users(users)
-    return jsonify(users[username]), 200
+    save_users()
+    user_data = users[username].copy()
+    user_data.pop("password")
+    return jsonify(user_data)
 
 @app.route("/login", methods=["POST"])
 def login():
-    data = request.get_json()
+    data = request.json
     username = data.get("username")
     password = data.get("password")
-
-    users = load_users()
-    if username not in users or users[username]["password"] != password:
-        return jsonify({"error": "Invalid credentials"}), 401
-
-    return jsonify(users[username]), 200
+    user = users.get(username)
+    if user and user["password"] == hash_password(password):
+        user_data = user.copy()
+        user_data.pop("password")
+        return jsonify(user_data)
+    return jsonify({"error": "Identifiants invalides"}), 401
 
 @app.route("/update", methods=["POST"])
 def update_user():
-    data = request.get_json()
+    data = request.json
     username = data.get("username")
     user_data = data.get("data")
-
-    users = load_users()
     if username in users:
+        # Ne pas écraser le mot de passe
+        password = users[username]["password"]
         users[username] = user_data
-        save_users(users)
-        return jsonify({"success": True}), 200
-
-    return jsonify({"error": "User not found"}), 404
+        users[username]["password"] = password
+        save_users()
+        return jsonify(success=True)
+    return jsonify({"error": "Utilisateur introuvable"}), 404
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
