@@ -81,5 +81,11 @@ def update():
 
     return jsonify({"message": "Données mises à jour"}), 200
 
+@app.route("/leaderboard", methods=["GET"])
+def leaderboard():
+    top = sorted(users.items(), key=lambda x: x[1].get("points", 0), reverse=True)
+    result = [{"username": u, "points": d.get("points", 0)} for u, d in top[:10]]
+    return jsonify(result), 200
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
